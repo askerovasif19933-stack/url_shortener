@@ -1,0 +1,128 @@
+В проекте используются pytest, pytest-asyncio и httpx для тестирования:
+
+FastAPI-эндпоинтов
+без запуска реального сервера и без реальной БД / Redis.
+
+Установленные зависимости
+pytest
+pytest-asyncio
+httpx
+
+
+test/
+├── test_service.py   # Unit-тесты бизнес-логики
+└── test_api.py       # Тесты FastAPI эндпоинтов
+
+Конфигурация pytest
+
+Файл pytest.ini обязательно лежит в корне проекта:
+
+[pytest]
+asyncio_mode = auto
+pythonpath = .
+
+Что это значит:
+
+asyncio_mode = auto
+→ pytest автоматически понимает async def тесты
+
+pythonpath = .
+→ позволяет импортировать модули проекта (service, main, src.*)
+
+Запуск тестов
+
+Из корня проекта:
+
+bash:
+
+pytest
+
+
+Пример вывода:
+
+collected 4 items
+test_api.py ..
+test_service.py ..
+
+Unit-тесты 
+
+Файл: test/test_service.py
+
+@pytest.mark.asyncio
+@patch("service.cash_long_url", new_callable=AsyncMock)
+@patch("service.add_short_url", new_callable=AsyncMock)
+async def test_create_short_url_new(mock_add, mock_cache):
+
+Что здесь происходит:
+
+@pytest.mark.asyncio
+→ говорит pytest, что тест асинхронный
+
+patch("service.cash_long_url")
+→ подменяет реальную функцию мок-версией
+
+AsyncMock
+→ имитация async-функции (await работает)
+
+Проверка логики
+mock_cache.return_value = None
+slug = await create_short_url("https://example.com")
+
+
+говорим: "в базе нет такого URL"
+
+вызываем настоящую бизнес-логику
+
+mock_add.assert_awaited_once()
+
+
+проверяем, что URL действительно был сохранён
+
+API-тесты (FastAPI)
+
+Файл: test/test_api.py
+
+transport = ASGITransport(app=app)
+
+Зачем это нужно:
+
+позволяет тестировать FastAPI без uvicorn
+
+приложение запускается в памяти
+
+Создание клиента
+async with AsyncClient(
+    transport=transport,
+    base_url="http://test"
+) as client:
+
+
+AsyncClient — HTTP-клиент
+
+ASGITransport — подключает FastAPI напрямую
+
+Пример API-теста
+response = await client.post(
+    "/short_url",
+    json={"long_url": "https://example.com"}
+)
+
+
+Проверки:
+
+assert response.status_code == 200
+assert response.json() == {"slug": "abc123"}
+
+
+эндпоинт работает
+формат ответа корректный
+
+Мокинг зависимостей
+@patch("main.create_short_url", new_callable=AsyncMock)
+
+Почему именно main.create_short_url?
+
+Патчить нужно там, где функция используется, а не где объявлена.
+
+FastAPI использует create_short_url внутри main.py,
+поэтому патч идёт через main.create_short_url.

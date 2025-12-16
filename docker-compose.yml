@@ -1,0 +1,33 @@
+services:
+  api:
+    build: .
+    container_name: url_shortener_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+
+  db:
+    image: postgres:17
+    container_name: url_shortener_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: short_urls
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "6432:5432"
+
+  redis:
+    image: redis:7
+    container_name: url_shortener_redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:
+

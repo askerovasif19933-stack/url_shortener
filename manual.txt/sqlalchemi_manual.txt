@@ -1,0 +1,135 @@
+Используется:
+
+SQLAlchemy 2.0
+
+asyncpg
+
+PostgreSQL
+
+async engine + async session
+
+Создание engine (подключение к БД)
+
+from sqlalchemy.ext.asyncio import create_async_engine
+
+DATABASE_URL = "postgresql+asyncpg://user:password@db:5432/dbname"
+
+engine = create_async_engine(
+    DATABASE_URL,)
+
+Суть:
+
+create_async_engine — точка входа в БД
+
+asyncpg — асинхронный драйвер PostgreSQL
+
+engine — управляет подключениями
+
+Base (основа для таблиц)
+
+from sqlalchemy.orm import DeclarativeBase
+
+class Base(DeclarativeBase):
+    pass
+
+Суть от Base наследуются все модели
+
+SQLAlchemy собирает метаданные таблиц
+
+Описание таблицы (модель)
+
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column
+
+class ShortURL(Base):
+    __tablename__ = "short_urls"
+
+    slug: Mapped[str] = mapped_column(String, primary_key=True)
+    long_url: Mapped[str] = mapped_column(String, nullable=False)
+
+Суть:
+
+класс = таблица
+
+поле = колонка
+
+Mapped[...] — типизация
+
+primary_key=True — уникальный ключ
+
+Создание таблиц в БД
+async with engine.begin() as conn:
+    await conn.run_sync(Base.metadata.create_all)
+
+читает все модели
+
+создаёт таблицы, если их нет
+
+обычно выполняется на старте приложения
+
+Session (работа с БД)
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
+SessionLocal = async_sessionmaker(
+    engine,
+    expire_on_commit=False
+)
+
+Session — рабочий контекст
+
+через него выполняются все запросы
+
+Получение сессии
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def get_session():
+    async with SessionLocal() as session:
+        yield session
+
+безопасное открытие / закрытие соединения
+
+используется в async with
+
+Добавление записи
+async with get_session() as session:
+    obj = ShortURL(slug="abc123", long_url="https://example.com")
+    session.add(obj)
+    await session.commit()
+
+создаём объект
+
+добавляем
+
+коммитим
+
+Получение данных (SELECT)
+from sqlalchemy import select
+
+stmt = select(ShortURL).where(ShortURL.slug == slug)
+res = await session.execute(stmt)
+result = res.scalar_one_or_none()
+
+select() — SQL SELECT
+
+execute() — выполнение
+
+scalar_one_or_none() — одна запись или None
+
+Alembic
+нужен, если:
+меняется структура таблиц
+проект растёт
+несколько окружений
+
+Итог в одном абзаце
+
+Engine — подключение к БД
+
+Base + Model — описание таблиц
+
+Session — работа с данными
+
+select / add / commit — основные операции
+
+Это минимальный, правильный и современный способ работы с SQLAlchemy.

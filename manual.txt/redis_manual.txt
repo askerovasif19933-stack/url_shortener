@@ -1,0 +1,102 @@
+Redis — это быстрое in-memory хранилище (ключ → значение) по сути это как словарь в пайтон.
+зачем это нужно
+ускорения редиректа , снижения нагрузки на БД
+
+Логика:
+сначала Redis
+если нет → БД
+результат кладём обратно в Redis
+
+short → long (основное)
+key   = slug
+value = long_url
+TTL   = 1 час
+
+
+Используется при редиректе /abc123
+
+long → short (анти-дубликаты)
+key   = long_url
+value = slug
+TTL   = 1 час
+
+
+Используется при создании short URL
+Важно: это не обязательно, если ты проверяешь БД
+
+Подключение Redis пример
+import redis.asyncio as redis
+
+redis_client = redis.from_url(
+    "redis://localhost:6379",
+    decode_responses=True
+)
+
+Суть:
+
+async клиент
+
+работает с await
+
+decode_responses=True → строки, не bytes
+
+Записать в Redis
+await redis_client.set(
+    key,
+    value,
+    ex=3600
+)
+
+Суть:
+
+ex — TTL в секундах
+
+данные удалятся автоматически
+
+Прочитать из Redis
+value = await redis_client.get(key)
+
+Суть:
+
+если ключа нет → None
+
+Redis очень быстрый
+
+Как выглядит код логически
+async def get_long_url(slug):
+    cached = await get_from_cache(slug)
+    if cached:
+        return cached
+
+    long_url = await get_from_db(slug)
+    if not long_url:
+        return None
+
+    await set_to_cache(slug, long_url)
+    return long_url
+
+
+Типичная схема (best practice)
+При создании short URL:
+long_url → Redis?
+     ↓ нет
+long_url → БД?
+     ↓ нет
+создать slug
+записать в БД
+записать в Redis
+
+При редиректе:
+slug → Redis?
+     ↓ нет
+slug → БД
+     ↓
+записать в Redis
+
+Частые ошибки
+
+Хранить в Redis как в БД
+Не ставить TTL
+Доверять Redis без fallback
+Проверять только Redis на уникальность
+
