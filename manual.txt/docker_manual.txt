@@ -123,6 +123,7 @@ volumes:
 docker compose up vs run 
 docker compose up
 docker compose up --build
+docker compose down
 
 
  запускает ВСЕ сервисы
